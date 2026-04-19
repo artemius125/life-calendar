@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Календарь жизни</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #11111f;
+      --surface:   #191928;
+      --border:    rgba(255,255,255,0.09);
+      --text:      #c8c8e0;
+      --muted:     #52526e;
+      --accent:    #4c6ef5;
+      --gold:      #ffd43b;
+      --gold-glow: rgba(255,212,59,0.45);
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3.5rem 1.5rem 6rem;
+    }
+
+    /* ── Header ── */
+    .header { text-align: center; margin-bottom: 2rem; }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 200;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: #fff;
+      margin-bottom: 0.5rem;
+    }
+
+    .header-meta { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.12em; }
+
+    /* ── Live Counter ── */
+    .live-counter {
+      text-align: center;
+      margin-bottom: 2.5rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .counter-time { font-size: 1.05rem; font-weight: 300; color: var(--text); letter-spacing: 0.04em; }
+    .counter-days { color: #fff; font-weight: 500; }
+    .counter-secs { color: var(--gold); }
+
+    .counter-label {
+      font-size: 0.6rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      margin-top: 0.35rem;
+    }
+
+    /* ── Stats section ── */
+    .stats-section {
+      width: fit-content;
+      max-width: min(720px, 96vw);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      background: var(--border);
+      margin-bottom: 2.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .stats-row { display: flex; gap: 1px; }
+
+    .stats-row.primary .stat {
+      background: var(--surface);
+      padding: 1.15rem 1.6rem;
+      text-align: center;
+      flex: 1;
+      transition: background 0.2s ease;
+    }
+    .stats-row.primary .stat:hover { background: rgba(20,20,38,0.95); }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #fff;
+      line-height: 1;
+      margin-bottom: 0.4rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-value.blue   { color: var(--accent); }
+    .stat-value.violet { color: #b47cf7; }
+    .stat-value.gold   { color: var(--gold); }
+
+    .stat-label {
+      font-size: 0.58rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .stats-row.secondary .stat {
+      background: rgba(18,18,32,0.97);
+      padding: 0.95rem 1.3rem;
+      flex: 1;
+      transition: background 0.2s ease;
+    }
+    .stats-row.secondary .stat:hover { background: rgba(26,26,42,0.98); }
+
+    .insight-label {
+      font-size: 0.55rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.13em;
+      margin-bottom: 0.55rem;
+    }
+
+    .age-breakdown { display: flex; gap: 0.9rem; align-items: baseline; }
+    .age-unit { display: flex; flex-direction: column; align-items: center; }
+
+    .age-num {
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: #fff;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .age-lbl {
+      font-size: 0.55rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: 0.25rem;
+    }
+
+    .insight-main {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #fff;
+      line-height: 1.2;
+      font-variant-numeric: tabular-nums;
+    }
+    .insight-main.soon { color: var(--gold); }
+    .insight-main.done { color: #7be0a0; }
+
+    .insight-sub { font-size: 0.63rem; color: var(--muted); margin-top: 0.3rem; }
+
+    /* ── Progress bar ── */
+    .progress-wrap { width: 100%; max-width: 700px; margin-bottom: 2.5rem; }
+
+    .progress-track {
+      height: 3px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 2px;
+      position: relative;
+      overflow: visible;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4c6ef5 0%, #9775fa 60%, var(--gold) 100%);
+      border-radius: 2px;
+      position: relative;
+    }
+
+    .progress-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--gold);
+      box-shadow: 0 0 10px var(--gold-glow);
+      position: absolute;
+      right: -5.5px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .progress-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.6rem;
+      font-size: 0.62rem;
+      color: var(--muted);
+    }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 1.8rem;
+      margin-bottom: 1.8rem;
+      font-size: 0.68rem;
+      color: var(--muted);
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 0.45rem; }
+
+    .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .legend-dot.past    { background: var(--accent); opacity: 0.75; }
+    .legend-dot.current { background: var(--gold); box-shadow: 0 0 6px var(--gold-glow); }
+    .legend-dot.future  { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18); }
+
+    /* ── Calendar ── */
+    .calendar-outer { position: relative; }
+
+    .col-labels { display: flex; margin-left: 36px; margin-bottom: 4px; gap: 2px; }
+
+    .col-label {
+      width: 10px;
+      font-size: 0.52rem;
+      color: var(--muted);
+      text-align: center;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .grid { display: flex; flex-direction: column; gap: 2px; }
+
+    .year-row {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      border-radius: 3px;
+      transition: background 0.15s ease;
+    }
+
+    .year-row.decade-gap { margin-top: 5px; }
+
+    .year-row:hover { background: rgba(255,255,255,0.025); }
+    .year-row:hover .week.past   { opacity: 0.92; filter: brightness(1.2); }
+    .year-row:hover .week.future { border-color: rgba(255,255,255,0.28); }
+    .year-row:hover .row-label   { color: var(--text) !important; }
+
+    .row-label {
+      width: 32px;
+      font-size: 0.58rem;
+      color: var(--muted);
+      text-align: right;
+      padding-right: 6px;
+      flex-shrink: 0;
+      user-select: none;
+      transition: color 0.15s ease;
+    }
+
+    .row-label.decade { color: var(--accent); font-weight: 600; font-size: 0.63rem; }
+
+    /* ── Week cells ── */
+    .week {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      flex-shrink: 0;
+      cursor: default;
+      transition: transform 0.1s ease, filter 0.1s ease, opacity 0.15s ease;
+    }
+
+    .week:hover { transform: scale(1.7); z-index: 5; filter: brightness(1.4) !important; }
+    .week.past  { opacity: 0.72; }
+
+    .week.current {
+      background: var(--gold) !important;
+      opacity: 1;
+      box-shadow: 0 0 7px var(--gold-glow), 0 0 14px rgba(255,212,59,0.25);
+      animation: breathe 2.8s ease-in-out infinite;
+    }
+
+    .week.future {
+      background: rgba(255,255,255,0.06) !important;
+      border: 1px solid rgba(255,255,255,0.18);
+    }
+
+    @keyframes breathe {
+      0%,100% { box-shadow: 0 0 7px var(--gold-glow), 0 0 14px rgba(255,212,59,0.25); }
+      50%      { box-shadow: 0 0 13px var(--gold-glow), 0 0 26px rgba(255,212,59,0.4); }
+    }
+
+    @keyframes rowIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .year-row { opacity: 0; animation: rowIn 0.4s ease forwards; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .year-row { animation: none; opacity: 1; }
+    }
+
+    /* ── Tooltip ── */
+    #tooltip {
+      position: fixed;
+      background: rgba(22,22,40,0.97);
+      border: 1px solid rgba(76,110,245,0.3);
+      color: #dde;
+      padding: 0.35rem 0.8rem;
+      border-radius: 8px;
+      font-size: 0.7rem;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.12s ease;
+      z-index: 999;
+      white-space: nowrap;
+      backdrop-filter: blur(6px);
+    }
+    #tooltip.show { opacity: 1; }
+
+    /* ── Back-to-now button ── */
+    #backBtn {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: rgba(14,14,28,0.92);
+      border: 1px solid rgba(255,212,59,0.35);
+      color: var(--gold);
+      padding: 0.55rem 1.1rem;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      font-family: inherit;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      letter-spacing: 0.08em;
+      z-index: 200;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.25s ease, transform 0.25s ease, background 0.2s ease;
+      pointer-events: none;
+    }
+    #backBtn.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    #backBtn:hover   { background: rgba(255,212,59,0.1); border-color: var(--gold); }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 3.5rem;
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.9;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Mobile ── */
+    @media (max-width: 680px) {
+      body { padding: 2rem 0.75rem 5rem; }
+      h1   { font-size: 1.25rem; letter-spacing: 0.2em; }
+      .stats-section { width: 100%; max-width: 100%; }
+      .stats-row { flex-wrap: wrap; }
+      .stats-row.primary .stat   { padding: 0.75rem 0.8rem; min-width: calc(50% - 1px); }
+      .stats-row.secondary .stat { padding: 0.8rem 0.9rem; min-width: 100%; }
+      .week       { width: 6px; height: 6px; border-radius: 1px; }
+      .col-labels { gap: 1px; }
+      .col-label  { width: 6px; font-size: 0.45rem; }
+      .grid       { gap: 1px; }
+      .year-row   { gap: 1px; }
+      .row-label  { width: 24px; font-size: 0.5rem; }
+      #backBtn    { bottom: 1.2rem; right: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="tooltip"></div>
+<button id="backBtn">● сейчас</button>
+
+<header class="header">
+  <h1>Календарь жизни</h1>
+  <p class="header-meta">каждая клетка — одна неделя</p>
+</header>
+
+<div class="live-counter">
+  <div class="counter-time">
+    <span class="counter-days" id="cDays">0</span> дн &nbsp;
+    <span id="cH">00</span>:<span id="cM">00</span>:<span class="counter-secs" id="cS">00</span>
+  </div>
+  <div class="counter-label" id="counterLabel"></div>
+</div>
+
+<div class="stats-section">
+  <div class="stats-row primary">
+    <div class="stat"><div class="stat-value"        id="sDays">—</div><div class="stat-label">Дней</div></div>
+    <div class="stat"><div class="stat-value blue"   id="sWeeks">—</div><div class="stat-label">Недель</div></div>
+    <div class="stat"><div class="stat-value violet" id="sMonths">—</div><div class="stat-label">Месяцев</div></div>
+    <div class="stat"><div class="stat-value gold"   id="sYears">—</div><div class="stat-label">Лет</div></div>
+  </div>
+  <div class="stats-row secondary">
+    <div class="stat">
+      <div class="insight-label">Точный возраст</div>
+      <div class="age-breakdown">
+        <div class="age-unit"><span class="age-num" id="iY">—</span><span class="age-lbl">лет</span></div>
+        <div class="age-unit"><span class="age-num" id="iM">—</span><span class="age-lbl">мес</span></div>
+        <div class="age-unit"><span class="age-num" id="iD">—</span><span class="age-lbl">дн</span></div>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="insight-label">До дня рождения</div>
+      <div class="insight-main" id="iBdMain">—</div>
+      <div class="insight-sub"  id="iBdSub"></div>
+    </div>
+    <div class="stat">
+      <div class="insight-label">Конец жизни (приблизительно)</div>
+      <div class="insight-main" id="iEndMain">—</div>
+      <div class="insight-sub"  id="iEndSub"></div>
+    </div>
+  </div>
+</div>
+
+<div class="progress-wrap">
+  <div class="progress-track">
+    <div class="progress-fill" id="progressFill"><div class="progress-dot"></div></div>
+  </div>
+  <div class="progress-labels">
+    <span id="birthLabel"></span>
+    <span id="progressLabel"></span>
+    <span id="endLabel"></span>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot past"></div><span>Прожито</span></div>
+  <div class="legend-item"><div class="legend-dot current"></div><span>Сейчас</span></div>
+  <div class="legend-item"><div class="legend-dot future"></div><span>Впереди</span></div>
+</div>
+
+<div class="calendar-outer">
+  <div class="col-labels" id="colLabels"></div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<footer id="footer"></footer>
+
+<script>
+  /* ══════════════════════════════════════════════════
+     ЛИЧНЫЕ ДАННЫЕ — при необходимости измени здесь
+     ══════════════════════════════════════════════════ */
+  const BIRTH    = new Date(2001, 4, 12); // месяцы: 0=янв … 4=май … 11=дек
+  const LIFESPAN = 71;                    // ожидаемая продолжительность жизни (лет)
+  /* ══════════════════════════════════════════════════ */
+
+  const WEEKS   = 52;
+  const MS_WEEK = 7 * 24 * 60 * 60 * 1000;
+  const TODAY   = new Date();
+
+  function fmtDate(d, opts) {
+    return d.toLocaleDateString('ru-RU', opts || { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  /* ── Live counter ── */
+  document.getElementById('counterLabel').textContent =
+    `прожито с ${fmtDate(BIRTH, { day: 'numeric', month: 'long', year: 'numeric' })}`;
+
+  function tickCounter() {
+    const total = Math.floor((new Date() - BIRTH) / 1000);
+    document.getElementById('cDays').textContent = Math.floor(total / 86400).toLocaleString('ru');
+    document.getElementById('cH').textContent    = pad(Math.floor(total / 3600) % 24);
+    document.getElementById('cM').textContent    = pad(Math.floor(total / 60) % 60);
+    document.getElementById('cS').textContent    = pad(total % 60);
+  }
+  tickCounter();
+  setInterval(tickCounter, 1000);
+
+  /* ── Stats ── */
+  const livedMs    = TODAY - BIRTH;
+  const livedDays  = Math.floor(livedMs / 86400000);
+  const livedWeeks = Math.floor(livedMs / MS_WEEK);
+  const totalWeeks = LIFESPAN * WEEKS;
+  const pct        = (livedWeeks / totalWeeks * 100).toFixed(1);
+  const currentAge = Math.floor(livedMs / (365.25 * 24 * 60 * 60 * 1000));
+
+  function exactAge(birth, today) {
+    let y = today.getFullYear() - birth.getFullYear();
+    let m = today.getMonth()   - birth.getMonth();
+    let d = today.getDate()    - birth.getDate();
+    if (d < 0) { m--; d += new Date(today.getFullYear(), today.getMonth(), 0).getDate(); }
+    if (m < 0) { y--; m += 12; }
+    return { y, m, d };
+  }
+
+  function daysToNextBirthday(birth, today) {
+    const next = new Date(today.getFullYear(), birth.getMonth(), birth.getDate());
+    if (next - today <= 0) next.setFullYear(today.getFullYear() + 1);
+    return Math.round((next - today) / 86400000);
+  }
+
+  const { y: eY, m: eM, d: eD } = exactAge(BIRTH, TODAY);
+  const livedMonths = eY * 12 + eM;
+  const bdDays      = daysToNextBirthday(BIRTH, TODAY);
+  const nextBD      = new Date(TODAY.getFullYear(), BIRTH.getMonth(), BIRTH.getDate());
+  if (nextBD - TODAY <= 0) nextBD.setFullYear(TODAY.getFullYear() + 1);
+
+  const endDate   = new Date(BIRTH);
+  endDate.setFullYear(BIRTH.getFullYear() + LIFESPAN);
+  const endDiff   = endDate - TODAY;
+  const endYears  = Math.floor(endDiff / (365.25 * 86400000));
+  const endMonths = Math.floor((endDiff - endYears * 365.25 * 86400000) / (30.44 * 86400000));
+
+  document.getElementById('sDays').textContent   = livedDays.toLocaleString('ru');
+  document.getElementById('sWeeks').textContent  = livedWeeks.toLocaleString('ru');
+  document.getElementById('sMonths').textContent = livedMonths.toLocaleString('ru');
+  document.getElementById('sYears').textContent  = currentAge;
+  document.getElementById('iY').textContent      = eY;
+  document.getElementById('iM').textContent      = eM;
+  document.getElementById('iD').textContent      = eD;
+
+  const bdEl = document.getElementById('iBdMain');
+  if (bdDays === 0) {
+    bdEl.textContent = 'Сегодня!';
+    bdEl.classList.add('done');
+  } else {
+    bdEl.textContent = `через ${bdDays} ${bdDays === 1 ? 'день' : bdDays < 5 ? 'дня' : 'дней'}`;
+    if (bdDays <= 30) bdEl.classList.add('soon');
+  }
+  document.getElementById('iBdSub').textContent  = fmtDate(nextBD, { day: 'numeric', month: 'long' });
+  document.getElementById('iEndMain').textContent = `через ${endYears} л ${endMonths} мес`;
+  document.getElementById('iEndSub').textContent  = fmtDate(endDate, { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const END = new Date(BIRTH);
+  END.setFullYear(BIRTH.getFullYear() + LIFESPAN);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = pct + '% прожито';
+  document.getElementById('birthLabel').textContent    = fmtDate(BIRTH, { day: 'numeric', month: 'short', year: 'numeric' });
+  document.getElementById('endLabel').textContent      = fmtDate(END,   { day: 'numeric', month: 'short', year: 'numeric' });
+
+  /* ── Column labels ── */
+  const colLabels = document.getElementById('colLabels');
+  for (let w = 0; w < WEEKS; w++) {
+    const el = document.createElement('div');
+    el.className   = 'col-label';
+    el.textContent = (w === 0 || (w + 1) % 10 === 0) ? (w + 1) : '';
+    colLabels.appendChild(el);
+  }
+
+  /* ── Tooltip ── */
+  const tip = document.getElementById('tooltip');
+  function showTip(e, html) { tip.innerHTML = html; tip.classList.add('show'); moveTip(e); }
+  function moveTip(e) {
+    const x = e.clientX + 14, y = e.clientY - 40;
+    tip.style.left = (x + tip.offsetWidth > innerWidth ? e.clientX - tip.offsetWidth - 14 : x) + 'px';
+    tip.style.top  = (y < 0 ? e.clientY + 14 : y) + 'px';
+  }
+  function hideTip() { tip.classList.remove('show'); }
+
+  /* ── Grid ── */
+  const grid = document.getElementById('grid');
+  let currentCell = null;
+
+  for (let yr = 0; yr < LIFESPAN; yr++) {
+    const row = document.createElement('div');
+    row.className = 'year-row' + (yr > 0 && yr % 10 === 0 ? ' decade-gap' : '');
+    row.style.animationDelay = `${yr * 11}ms`;
+
+    const lbl = document.createElement('div');
+    lbl.className   = 'row-label' + (yr % 10 === 0 ? ' decade' : '');
+    lbl.textContent = yr % 10 === 0 ? yr : '';
+    row.addEventListener('mouseenter', () => { lbl.textContent = yr; });
+    row.addEventListener('mouseleave', () => { lbl.textContent = yr % 10 === 0 ? yr : ''; });
+    row.appendChild(lbl);
+
+    const yearStart = new Date(BIRTH);
+    yearStart.setFullYear(BIRTH.getFullYear() + yr);
+
+    const hue      = Math.round(215 + (yr / (LIFESPAN - 1)) * 55);
+    const pastColor = `hsl(${hue},68%,55%)`;
+
+    for (let w = 0; w < WEEKS; w++) {
+      const ws = new Date(yearStart);
+      ws.setDate(yearStart.getDate() + w * 7);
+      const we = new Date(ws);
+      we.setDate(ws.getDate() + 6);
+
+      const cell      = document.createElement('div');
+      cell.className  = 'week';
+      const isCurrent = ws <= TODAY && we >= TODAY;
+      const isPast    = we < TODAY && !isCurrent;
+
+      if (isCurrent) { cell.classList.add('current'); currentCell = cell; }
+      else if (isPast) { cell.classList.add('past'); cell.style.background = pastColor; }
+      else { cell.classList.add('future'); }
+
+      const tipHtml = `
+        <span style="color:var(--muted);font-size:0.62rem">Возраст ${yr} лет · неделя ${w + 1}</span><br>
+        ${fmtDate(ws)} — ${fmtDate(we)}
+        ${isCurrent ? '<br><span style="color:var(--gold)">← сейчас</span>' : ''}
+      `;
+      cell.addEventListener('mouseenter', e => showTip(e, tipHtml));
+      cell.addEventListener('mousemove',  moveTip);
+      cell.addEventListener('mouseleave', hideTip);
+      row.appendChild(cell);
+    }
+    grid.appendChild(row);
+  }
+
+  document.getElementById('footer').innerHTML =
+    `${LIFESPAN} лет × ${WEEKS} недель = ${totalWeeks.toLocaleString('ru')} клеток`;
+
+  /* ── Auto-scroll ── */
+  if (currentCell) {
+    setTimeout(() => {
+      currentCell.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, Math.min(LIFESPAN * 11 + 500, 1500));
+  }
+
+  /* ── Back-to-now button ── */
+  const backBtn = document.getElementById('backBtn');
+  function checkScroll() {
+    if (!currentCell) return;
+    const { top, bottom } = currentCell.getBoundingClientRect();
+    backBtn.classList.toggle('visible', !(top >= 80 && bottom <= innerHeight - 40));
+  }
+  window.addEventListener('scroll', checkScroll, { passive: true });
+  checkScroll();
+  backBtn.addEventListener('click', () => currentCell?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+</script>
+</body>
+</html>
