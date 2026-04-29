@@ -43,6 +43,96 @@
 
     .header-meta { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.12em; }
 
+    /* ── Settings ── */
+    .settings-panel {
+      width: min(720px, 96vw);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(18,18,32,0.97);
+      padding: 0.95rem 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .settings-form {
+      display: flex;
+      align-items: end;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+    }
+
+    .settings-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      min-width: 190px;
+      flex: 1;
+    }
+
+    .settings-field label {
+      font-size: 0.58rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .settings-input {
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.17);
+      background: rgba(15,15,26,0.9);
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.84rem;
+      padding: 0 0.75rem;
+      outline: none;
+    }
+
+    .settings-input:focus-visible {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(76,110,245,0.2);
+    }
+
+    .settings-actions {
+      display: flex;
+      gap: 0.55rem;
+      flex-wrap: wrap;
+    }
+
+    .settings-btn {
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.17);
+      background: rgba(22,22,40,0.95);
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0 0.9rem;
+      cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .settings-btn.primary {
+      border-color: rgba(76,110,245,0.5);
+      background: rgba(76,110,245,0.17);
+    }
+
+    .settings-btn:hover { border-color: rgba(255,255,255,0.32); background: rgba(34,34,55,0.95); }
+    .settings-btn.primary:hover { border-color: var(--accent); background: rgba(76,110,245,0.26); }
+    .settings-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(76,110,245,0.2);
+    }
+
+    .settings-message {
+      margin-top: 0.55rem;
+      min-height: 1rem;
+      font-size: 0.66rem;
+      color: var(--muted);
+    }
+    .settings-message.error { color: #ff8d8d; }
+
     /* ── Live Counter ── */
     .live-counter {
       text-align: center;
@@ -263,6 +353,7 @@
     }
 
     .week:hover { transform: scale(1.7); z-index: 5; filter: brightness(1.4) !important; }
+    .week:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .week.past  { opacity: 0.72; }
 
     .week.current {
@@ -350,6 +441,8 @@
       body { padding: 2rem 0.75rem 5rem; }
       h1   { font-size: 1.25rem; letter-spacing: 0.2em; }
       .stats-section { width: 100%; max-width: 100%; }
+      .settings-panel { width: 100%; max-width: 100%; }
+      .settings-field { min-width: 100%; }
       .stats-row { flex-wrap: wrap; }
       .stats-row.primary .stat   { padding: 0.75rem 0.8rem; min-width: calc(50% - 1px); }
       .stats-row.secondary .stat { padding: 0.8rem 0.9rem; min-width: 100%; }
@@ -372,6 +465,24 @@
   <h1>Календарь жизни</h1>
   <p class="header-meta">каждая клетка — одна неделя</p>
 </header>
+
+<section class="settings-panel" aria-label="Параметры календаря">
+  <form class="settings-form" id="settingsForm">
+    <div class="settings-field">
+      <label for="birthInput">Дата рождения</label>
+      <input class="settings-input" id="birthInput" type="date" required>
+    </div>
+    <div class="settings-field">
+      <label for="lifespanInput">Продолжительность жизни (лет)</label>
+      <input class="settings-input" id="lifespanInput" type="number" min="1" max="130" required>
+    </div>
+    <div class="settings-actions">
+      <button class="settings-btn primary" type="submit">Применить</button>
+      <button class="settings-btn" id="resetSettingsBtn" type="button">Сбросить</button>
+    </div>
+  </form>
+  <p class="settings-message" id="settingsMessage" aria-live="polite"></p>
+</section>
 
 <div class="live-counter">
   <div class="counter-time">
@@ -435,187 +546,444 @@
 <footer id="footer"></footer>
 
 <script>
-  /* ══════════════════════════════════════════════════
-     ЛИЧНЫЕ ДАННЫЕ — при необходимости измени здесь
-     ══════════════════════════════════════════════════ */
-  const BIRTH    = new Date(2001, 4, 12); // месяцы: 0=янв … 4=май … 11=дек
-  const LIFESPAN = 71;                    // ожидаемая продолжительность жизни (лет)
-  /* ══════════════════════════════════════════════════ */
+  const DEFAULT_BIRTH = new Date(2001, 4, 12); // месяцы: 0=янв … 4=май … 11=дек
+  const DEFAULT_LIFESPAN = 71;                  // ожидаемая продолжительность жизни (лет)
+  const STORAGE_KEY = 'lifeCalendarConfig';
 
-  const WEEKS   = 52;
+  const WEEKS = 52;
   const MS_WEEK = 7 * 24 * 60 * 60 * 1000;
-  const TODAY   = new Date();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const MIN_LIFESPAN = 1;
+  const MAX_LIFESPAN = 130;
+
+  const refs = {
+    counterLabel: document.getElementById('counterLabel'),
+    cDays: document.getElementById('cDays'),
+    cH: document.getElementById('cH'),
+    cM: document.getElementById('cM'),
+    cS: document.getElementById('cS'),
+    sDays: document.getElementById('sDays'),
+    sWeeks: document.getElementById('sWeeks'),
+    sMonths: document.getElementById('sMonths'),
+    sYears: document.getElementById('sYears'),
+    iY: document.getElementById('iY'),
+    iM: document.getElementById('iM'),
+    iD: document.getElementById('iD'),
+    iBdMain: document.getElementById('iBdMain'),
+    iBdSub: document.getElementById('iBdSub'),
+    iEndMain: document.getElementById('iEndMain'),
+    iEndSub: document.getElementById('iEndSub'),
+    progressFill: document.getElementById('progressFill'),
+    progressLabel: document.getElementById('progressLabel'),
+    birthLabel: document.getElementById('birthLabel'),
+    endLabel: document.getElementById('endLabel'),
+    colLabels: document.getElementById('colLabels'),
+    grid: document.getElementById('grid'),
+    footer: document.getElementById('footer'),
+    tooltip: document.getElementById('tooltip'),
+    backBtn: document.getElementById('backBtn'),
+    settingsForm: document.getElementById('settingsForm'),
+    birthInput: document.getElementById('birthInput'),
+    lifespanInput: document.getElementById('lifespanInput'),
+    settingsMessage: document.getElementById('settingsMessage'),
+    resetSettingsBtn: document.getElementById('resetSettingsBtn')
+  };
+
+  let state = loadConfig();
+  let weekCells = [];
+  let currentCell = null;
+  let lastCurrentCellDateKey = '';
 
   function fmtDate(d, opts) {
     return d.toLocaleDateString('ru-RU', opts || { day: 'numeric', month: 'short', year: 'numeric' });
   }
   function pad(n) { return String(n).padStart(2, '0'); }
 
-  /* ── Live counter ── */
-  document.getElementById('counterLabel').textContent =
-    `прожито с ${fmtDate(BIRTH, { day: 'numeric', month: 'long', year: 'numeric' })}`;
-
-  function tickCounter() {
-    const total = Math.floor((new Date() - BIRTH) / 1000);
-    document.getElementById('cDays').textContent = Math.floor(total / 86400).toLocaleString('ru');
-    document.getElementById('cH').textContent    = pad(Math.floor(total / 3600) % 24);
-    document.getElementById('cM').textContent    = pad(Math.floor(total / 60) % 60);
-    document.getElementById('cS').textContent    = pad(total % 60);
+  function clamp(n, min, max) {
+    return Math.min(max, Math.max(min, n));
   }
-  tickCounter();
-  setInterval(tickCounter, 1000);
 
-  /* ── Stats ── */
-  const livedMs    = TODAY - BIRTH;
-  const livedDays  = Math.floor(livedMs / 86400000);
-  const livedWeeks = Math.floor(livedMs / MS_WEEK);
-  const totalWeeks = LIFESPAN * WEEKS;
-  const pct        = (livedWeeks / totalWeeks * 100).toFixed(1);
-  const currentAge = Math.floor(livedMs / (365.25 * 24 * 60 * 60 * 1000));
+  function startOfDay(d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
 
-  function exactAge(birth, today) {
-    let y = today.getFullYear() - birth.getFullYear();
-    let m = today.getMonth()   - birth.getMonth();
-    let d = today.getDate()    - birth.getDate();
-    if (d < 0) { m--; d += new Date(today.getFullYear(), today.getMonth(), 0).getDate(); }
+  function dateToInputValue(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  function parseInputDate(value) {
+    if (!value) return null;
+    const [year, month, day] = value.split('-').map(Number);
+    const parsed = new Date(year, month - 1, day);
+    if (
+      !Number.isFinite(year) ||
+      !Number.isFinite(month) ||
+      !Number.isFinite(day) ||
+      Number.isNaN(parsed.getTime()) ||
+      parsed.getFullYear() !== year ||
+      parsed.getMonth() !== month - 1 ||
+      parsed.getDate() !== day
+    ) {
+      return null;
+    }
+    return parsed;
+  }
+
+  function ensureValidBirth(inputBirth) {
+    const today = startOfDay(new Date());
+    const safeBirth = Number.isNaN(inputBirth?.getTime?.()) ? new Date(DEFAULT_BIRTH) : new Date(inputBirth);
+    return safeBirth > today ? today : safeBirth;
+  }
+
+  function normalizeConfig(raw) {
+    const birthRaw = raw?.birth instanceof Date ? raw.birth : new Date(raw?.birth || DEFAULT_BIRTH);
+    const birth = ensureValidBirth(birthRaw);
+
+    const life = Number(raw?.lifespan);
+    const lifespan = Number.isFinite(life) ? Math.round(life) : DEFAULT_LIFESPAN;
+
+    return {
+      birth,
+      lifespan: clamp(lifespan, MIN_LIFESPAN, MAX_LIFESPAN)
+    };
+  }
+
+  function loadConfig() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      return normalizeConfig(parsed);
+    } catch (_) {
+      return normalizeConfig({});
+    }
+  }
+
+  function saveConfig(config) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      birth: dateToInputValue(config.birth),
+      lifespan: config.lifespan
+    }));
+  }
+
+  function resetStoredConfig() {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+
+  function exactAge(fromDate, toDate) {
+    let y = toDate.getFullYear() - fromDate.getFullYear();
+    let m = toDate.getMonth() - fromDate.getMonth();
+    let d = toDate.getDate() - fromDate.getDate();
+    if (d < 0) { m--; d += new Date(toDate.getFullYear(), toDate.getMonth(), 0).getDate(); }
     if (m < 0) { y--; m += 12; }
-    return { y, m, d };
+    return { y: Math.max(0, y), m: Math.max(0, m), d: Math.max(0, d) };
   }
 
   function daysToNextBirthday(birth, today) {
-    const next = new Date(today.getFullYear(), birth.getMonth(), birth.getDate());
-    if (next - today <= 0) next.setFullYear(today.getFullYear() + 1);
-    return Math.round((next - today) / 86400000);
+    const dayToday = startOfDay(today);
+    const next = new Date(dayToday.getFullYear(), birth.getMonth(), birth.getDate());
+    if (next < dayToday) next.setFullYear(dayToday.getFullYear() + 1);
+    return Math.round((next - dayToday) / DAY_MS);
   }
 
-  const { y: eY, m: eM, d: eD } = exactAge(BIRTH, TODAY);
-  const livedMonths = eY * 12 + eM;
-  const bdDays      = daysToNextBirthday(BIRTH, TODAY);
-  const nextBD      = new Date(TODAY.getFullYear(), BIRTH.getMonth(), BIRTH.getDate());
-  if (nextBD - TODAY <= 0) nextBD.setFullYear(TODAY.getFullYear() + 1);
-
-  const endDate   = new Date(BIRTH);
-  endDate.setFullYear(BIRTH.getFullYear() + LIFESPAN);
-  const endDiff   = endDate - TODAY;
-  const endYears  = Math.floor(endDiff / (365.25 * 86400000));
-  const endMonths = Math.floor((endDiff - endYears * 365.25 * 86400000) / (30.44 * 86400000));
-
-  document.getElementById('sDays').textContent   = livedDays.toLocaleString('ru');
-  document.getElementById('sWeeks').textContent  = livedWeeks.toLocaleString('ru');
-  document.getElementById('sMonths').textContent = livedMonths.toLocaleString('ru');
-  document.getElementById('sYears').textContent  = currentAge;
-  document.getElementById('iY').textContent      = eY;
-  document.getElementById('iM').textContent      = eM;
-  document.getElementById('iD').textContent      = eD;
-
-  const bdEl = document.getElementById('iBdMain');
-  if (bdDays === 0) {
-    bdEl.textContent = 'Сегодня!';
-    bdEl.classList.add('done');
-  } else {
-    bdEl.textContent = `через ${bdDays} ${bdDays === 1 ? 'день' : bdDays < 5 ? 'дня' : 'дней'}`;
-    if (bdDays <= 30) bdEl.classList.add('soon');
-  }
-  document.getElementById('iBdSub').textContent  = fmtDate(nextBD, { day: 'numeric', month: 'long' });
-  document.getElementById('iEndMain').textContent = `через ${endYears} л ${endMonths} мес`;
-  document.getElementById('iEndSub').textContent  = fmtDate(endDate, { day: 'numeric', month: 'long', year: 'numeric' });
-
-  const END = new Date(BIRTH);
-  END.setFullYear(BIRTH.getFullYear() + LIFESPAN);
-  document.getElementById('progressFill').style.width = pct + '%';
-  document.getElementById('progressLabel').textContent = pct + '% прожито';
-  document.getElementById('birthLabel').textContent    = fmtDate(BIRTH, { day: 'numeric', month: 'short', year: 'numeric' });
-  document.getElementById('endLabel').textContent      = fmtDate(END,   { day: 'numeric', month: 'short', year: 'numeric' });
-
-  /* ── Column labels ── */
-  const colLabels = document.getElementById('colLabels');
-  for (let w = 0; w < WEEKS; w++) {
-    const el = document.createElement('div');
-    el.className   = 'col-label';
-    el.textContent = (w === 0 || (w + 1) % 10 === 0) ? (w + 1) : '';
-    colLabels.appendChild(el);
+  function getEndDate(config) {
+    const endDate = new Date(config.birth);
+    endDate.setFullYear(config.birth.getFullYear() + config.lifespan);
+    return endDate;
   }
 
-  /* ── Tooltip ── */
-  const tip = document.getElementById('tooltip');
-  function showTip(e, html) { tip.innerHTML = html; tip.classList.add('show'); moveTip(e); }
-  function moveTip(e) {
-    const x = e.clientX + 14, y = e.clientY - 40;
-    tip.style.left = (x + tip.offsetWidth > innerWidth ? e.clientX - tip.offsetWidth - 14 : x) + 'px';
-    tip.style.top  = (y < 0 ? e.clientY + 14 : y) + 'px';
+  function computeStats(now, config) {
+    const endDate = getEndDate(config);
+    const livedMs = Math.max(0, now - config.birth);
+    const totalMs = Math.max(1, endDate - config.birth);
+    const progress = clamp(livedMs / totalMs, 0, 1);
+    const livedDays = Math.floor(livedMs / DAY_MS);
+    const livedWeeks = Math.floor(livedMs / MS_WEEK);
+
+    const age = exactAge(config.birth, now);
+    const bdDays = daysToNextBirthday(config.birth, now);
+    const nextBD = new Date(startOfDay(now).getFullYear(), config.birth.getMonth(), config.birth.getDate());
+    if (nextBD < startOfDay(now)) nextBD.setFullYear(now.getFullYear() + 1);
+
+    const endDiff = endDate - now;
+    const endDelta = endDiff > 0 ? exactAge(now, endDate) : { y: 0, m: 0, d: 0 };
+
+    return {
+      endDate,
+      livedDays,
+      livedWeeks,
+      livedMonths: age.y * 12 + age.m,
+      age,
+      bdDays,
+      nextBD,
+      endDiff,
+      endDelta,
+      progressPct: (progress * 100).toFixed(1)
+    };
   }
-  function hideTip() { tip.classList.remove('show'); }
 
-  /* ── Grid ── */
-  const grid = document.getElementById('grid');
-  let currentCell = null;
+  function renderLiveCounter(now) {
+    const total = Math.max(0, Math.floor((now - state.birth) / 1000));
+    refs.cDays.textContent = Math.floor(total / 86400).toLocaleString('ru');
+    refs.cH.textContent = pad(Math.floor(total / 3600) % 24);
+    refs.cM.textContent = pad(Math.floor(total / 60) % 60);
+    refs.cS.textContent = pad(total % 60);
+  }
 
-  for (let yr = 0; yr < LIFESPAN; yr++) {
-    const row = document.createElement('div');
-    row.className = 'year-row' + (yr > 0 && yr % 10 === 0 ? ' decade-gap' : '');
-    row.style.animationDelay = `${yr * 11}ms`;
+  function renderStats(stats) {
+    refs.sDays.textContent = stats.livedDays.toLocaleString('ru');
+    refs.sWeeks.textContent = stats.livedWeeks.toLocaleString('ru');
+    refs.sMonths.textContent = stats.livedMonths.toLocaleString('ru');
+    refs.sYears.textContent = stats.age.y.toLocaleString('ru');
+    refs.iY.textContent = stats.age.y;
+    refs.iM.textContent = stats.age.m;
+    refs.iD.textContent = stats.age.d;
 
-    const lbl = document.createElement('div');
-    lbl.className   = 'row-label' + (yr % 10 === 0 ? ' decade' : '');
-    lbl.textContent = yr % 10 === 0 ? yr : '';
-    row.addEventListener('mouseenter', () => { lbl.textContent = yr; });
-    row.addEventListener('mouseleave', () => { lbl.textContent = yr % 10 === 0 ? yr : ''; });
-    row.appendChild(lbl);
-
-    const yearStart = new Date(BIRTH);
-    yearStart.setFullYear(BIRTH.getFullYear() + yr);
-
-    const hue      = Math.round(215 + (yr / (LIFESPAN - 1)) * 55);
-    const pastColor = `hsl(${hue},68%,55%)`;
-
-    for (let w = 0; w < WEEKS; w++) {
-      const ws = new Date(yearStart);
-      ws.setDate(yearStart.getDate() + w * 7);
-      const we = new Date(ws);
-      we.setDate(ws.getDate() + 6);
-
-      const cell      = document.createElement('div');
-      cell.className  = 'week';
-      const isCurrent = ws <= TODAY && we >= TODAY;
-      const isPast    = we < TODAY && !isCurrent;
-
-      if (isCurrent) { cell.classList.add('current'); currentCell = cell; }
-      else if (isPast) { cell.classList.add('past'); cell.style.background = pastColor; }
-      else { cell.classList.add('future'); }
-
-      const tipHtml = `
-        <span style="color:var(--muted);font-size:0.62rem">Возраст ${yr} лет · неделя ${w + 1}</span><br>
-        ${fmtDate(ws)} — ${fmtDate(we)}
-        ${isCurrent ? '<br><span style="color:var(--gold)">← сейчас</span>' : ''}
-      `;
-      cell.addEventListener('mouseenter', e => showTip(e, tipHtml));
-      cell.addEventListener('mousemove',  moveTip);
-      cell.addEventListener('mouseleave', hideTip);
-      row.appendChild(cell);
+    refs.iBdMain.classList.remove('soon', 'done');
+    if (stats.bdDays === 0) {
+      refs.iBdMain.textContent = 'Сегодня!';
+      refs.iBdMain.classList.add('done');
+    } else {
+      refs.iBdMain.textContent = `через ${stats.bdDays} ${stats.bdDays === 1 ? 'день' : stats.bdDays < 5 ? 'дня' : 'дней'}`;
+      if (stats.bdDays <= 30) refs.iBdMain.classList.add('soon');
     }
-    grid.appendChild(row);
+    refs.iBdSub.textContent = fmtDate(stats.nextBD, { day: 'numeric', month: 'long' });
+
+    refs.iEndMain.textContent = stats.endDiff > 0
+      ? `через ${stats.endDelta.y} л ${stats.endDelta.m} мес`
+      : 'Срок наступил';
+    refs.iEndSub.textContent = fmtDate(stats.endDate, { day: 'numeric', month: 'long', year: 'numeric' });
+
+    refs.progressFill.style.width = `${stats.progressPct}%`;
+    refs.progressLabel.textContent = `${stats.progressPct}% прожито`;
+    refs.birthLabel.textContent = fmtDate(state.birth, { day: 'numeric', month: 'short', year: 'numeric' });
+    refs.endLabel.textContent = fmtDate(stats.endDate, { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
-  document.getElementById('footer').innerHTML =
-    `${LIFESPAN} год × ${WEEKS} недели = ${totalWeeks.toLocaleString('ru')} клеток`;
+  function showSettingsMessage(text, isError) {
+    refs.settingsMessage.textContent = text;
+    refs.settingsMessage.classList.toggle('error', Boolean(isError));
+  }
 
-  /* ── Auto-scroll ── */
-  if (currentCell) {
+  function showTipAt(html, x, y) {
+    refs.tooltip.innerHTML = html;
+    refs.tooltip.classList.add('show');
+    const tipX = x + 14;
+    const tipY = y - 40;
+    refs.tooltip.style.left = (tipX + refs.tooltip.offsetWidth > innerWidth ? x - refs.tooltip.offsetWidth - 14 : tipX) + 'px';
+    refs.tooltip.style.top = (tipY < 0 ? y + 14 : tipY) + 'px';
+  }
+
+  function showTipForElement(el, html) {
+    const rect = el.getBoundingClientRect();
+    showTipAt(html, rect.left + rect.width / 2, rect.top);
+  }
+
+  function moveTip(e) {
+    if (!refs.tooltip.classList.contains('show')) return;
+    showTipAt(refs.tooltip.innerHTML, e.clientX, e.clientY);
+  }
+
+  function hideTip() {
+    refs.tooltip.classList.remove('show');
+  }
+
+  function weekTipHtml(item, isCurrent) {
+    return `
+      <span style="color:var(--muted);font-size:0.62rem">Возраст ${item.year} лет · неделя ${item.week}</span><br>
+      ${fmtDate(item.start)} — ${fmtDate(item.end)}
+      ${isCurrent ? '<br><span style="color:var(--gold)">← сейчас</span>' : ''}
+    `;
+  }
+
+  function weekAriaLabel(item, isCurrent) {
+    return `Возраст ${item.year} лет, неделя ${item.week}: ${fmtDate(item.start)} — ${fmtDate(item.end)}${isCurrent ? ', текущая неделя' : ''}`;
+  }
+
+  function updateWeekStates(now) {
+    currentCell = null;
+    for (const item of weekCells) {
+      const isCurrent = item.start <= now && item.end >= now;
+      const isPast = item.end < now && !isCurrent;
+
+      item.el.classList.remove('past', 'future', 'current');
+      item.el.style.background = '';
+
+      if (isCurrent) {
+        item.el.classList.add('current');
+        currentCell = item.el;
+      } else if (isPast) {
+        item.el.classList.add('past');
+        item.el.style.background = item.pastColor;
+      } else {
+        item.el.classList.add('future');
+      }
+
+      const tip = weekTipHtml(item, isCurrent);
+      item.tipHtml = tip;
+      item.el.setAttribute('aria-label', weekAriaLabel(item, isCurrent));
+    }
+  }
+
+  function buildColumnLabels() {
+    refs.colLabels.innerHTML = '';
+    for (let w = 0; w < WEEKS; w++) {
+      const el = document.createElement('div');
+      el.className = 'col-label';
+      el.textContent = (w === 0 || (w + 1) % 10 === 0) ? (w + 1) : '';
+      refs.colLabels.appendChild(el);
+    }
+  }
+
+  function buildGrid(config) {
+    refs.grid.innerHTML = '';
+    weekCells = [];
+
+    for (let yr = 0; yr < config.lifespan; yr++) {
+      const row = document.createElement('div');
+      row.className = 'year-row' + (yr > 0 && yr % 10 === 0 ? ' decade-gap' : '');
+      row.style.animationDelay = `${yr * 11}ms`;
+
+      const lbl = document.createElement('div');
+      lbl.className = 'row-label' + (yr % 10 === 0 ? ' decade' : '');
+      lbl.textContent = yr % 10 === 0 ? yr : '';
+      row.addEventListener('mouseenter', () => { lbl.textContent = yr; });
+      row.addEventListener('mouseleave', () => { lbl.textContent = yr % 10 === 0 ? yr : ''; });
+      row.appendChild(lbl);
+
+      const yearStart = new Date(config.birth);
+      yearStart.setFullYear(config.birth.getFullYear() + yr);
+      const hue = Math.round(215 + (yr / Math.max(1, config.lifespan - 1)) * 55);
+      const pastColor = `hsl(${hue},68%,55%)`;
+
+      for (let w = 0; w < WEEKS; w++) {
+        const ws = new Date(yearStart);
+        ws.setDate(yearStart.getDate() + w * 7);
+        const we = new Date(ws);
+        we.setDate(ws.getDate() + 6);
+
+        const cell = document.createElement('div');
+        cell.className = 'week';
+        cell.tabIndex = 0;
+        cell.setAttribute('role', 'img');
+
+        const item = {
+          el: cell,
+          year: yr,
+          week: w + 1,
+          start: ws,
+          end: we,
+          pastColor,
+          tipHtml: ''
+        };
+        weekCells.push(item);
+
+        cell.addEventListener('mouseenter', (e) => showTipAt(item.tipHtml, e.clientX, e.clientY));
+        cell.addEventListener('mousemove', moveTip);
+        cell.addEventListener('mouseleave', hideTip);
+        cell.addEventListener('focus', () => showTipForElement(cell, item.tipHtml));
+        cell.addEventListener('blur', hideTip);
+        cell.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') hideTip();
+        });
+
+        row.appendChild(cell);
+      }
+
+      refs.grid.appendChild(row);
+    }
+
+    const totalWeeks = config.lifespan * WEEKS;
+    refs.footer.textContent = `${config.lifespan} год × ${WEEKS} недели = ${totalWeeks.toLocaleString('ru')} клеток`;
+  }
+
+  function checkScroll() {
+    if (!currentCell) {
+      refs.backBtn.classList.remove('visible');
+      return;
+    }
+    const { top, bottom } = currentCell.getBoundingClientRect();
+    refs.backBtn.classList.toggle('visible', !(top >= 80 && bottom <= innerHeight - 40));
+  }
+
+  function maybeScrollToCurrentCell() {
+    if (!currentCell) return;
     setTimeout(() => {
       currentCell.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, Math.min(LIFESPAN * 11 + 500, 1500));
+    }, Math.min(state.lifespan * 11 + 500, 1500));
   }
 
-  /* ── Back-to-now button ── */
-  const backBtn = document.getElementById('backBtn');
-  function checkScroll() {
-    if (!currentCell) return;
-    const { top, bottom } = currentCell.getBoundingClientRect();
-    backBtn.classList.toggle('visible', !(top >= 80 && bottom <= innerHeight - 40));
+  function renderDateBoundUI() {
+    refs.counterLabel.textContent =
+      `прожито с ${fmtDate(state.birth, { day: 'numeric', month: 'long', year: 'numeric' })}`;
+    refs.birthInput.value = dateToInputValue(state.birth);
+    refs.lifespanInput.value = state.lifespan;
   }
+
+  function refreshData(forceWeekRecalc) {
+    const now = new Date();
+    renderLiveCounter(now);
+    renderStats(computeStats(now, state));
+
+    const currentDateKey = dateToInputValue(now);
+    if (forceWeekRecalc || currentDateKey !== lastCurrentCellDateKey) {
+      updateWeekStates(now);
+      lastCurrentCellDateKey = currentDateKey;
+    }
+    checkScroll();
+  }
+
+  function rerenderAll(options) {
+    const shouldScroll = Boolean(options?.scrollToCurrent);
+    renderDateBoundUI();
+    buildGrid(state);
+    refreshData(true);
+    if (shouldScroll) maybeScrollToCurrentCell();
+  }
+
+  function applyFormConfig() {
+    const birth = parseInputDate(refs.birthInput.value);
+    if (!birth) {
+      showSettingsMessage('Некорректная дата рождения.', true);
+      return;
+    }
+    const lifespanRaw = Number(refs.lifespanInput.value);
+    if (!Number.isFinite(lifespanRaw)) {
+      showSettingsMessage('Некорректная продолжительность жизни.', true);
+      return;
+    }
+
+    state = normalizeConfig({ birth, lifespan: lifespanRaw });
+    saveConfig(state);
+    rerenderAll({ scrollToCurrent: true });
+    showSettingsMessage('Параметры сохранены.', false);
+  }
+
+  function resetConfigToDefaults() {
+    resetStoredConfig();
+    state = normalizeConfig({ birth: DEFAULT_BIRTH, lifespan: DEFAULT_LIFESPAN });
+    rerenderAll({ scrollToCurrent: true });
+    showSettingsMessage('Параметры сброшены к значениям по умолчанию.', false);
+  }
+
+  refs.settingsForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    applyFormConfig();
+  });
+  refs.resetSettingsBtn.addEventListener('click', resetConfigToDefaults);
+
+  refs.backBtn.addEventListener('click', () => currentCell?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
   window.addEventListener('scroll', checkScroll, { passive: true });
-  checkScroll();
-  backBtn.addEventListener('click', () => currentCell?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+  window.addEventListener('focus', () => refreshData(true));
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshData(true);
+  });
+
+  buildColumnLabels();
+  rerenderAll({ scrollToCurrent: true });
+  setInterval(() => renderLiveCounter(new Date()), 1000);
+  setInterval(() => refreshData(false), 60 * 1000);
 </script>
 </body>
 </html>
