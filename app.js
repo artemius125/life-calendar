@@ -28,6 +28,8 @@
     iBdSub: document.getElementById('iBdSub'),
     iEndMain: document.getElementById('iEndMain'),
     iEndSub: document.getElementById('iEndSub'),
+    iRemainingWeeks: document.getElementById('iRemainingWeeks'),
+    iLifespan: document.getElementById('iLifespan'),
     progressFill: document.getElementById('progressFill'),
     progressLabel: document.getElementById('progressLabel'),
     birthLabel: document.getElementById('birthLabel'),
@@ -269,6 +271,7 @@
       nextBD,
       endDiff,
       endDelta,
+      remainingDays: Math.max(0, Math.round((startOfDay(endDate) - startOfDay(now)) / DAY_MS)),
       progressPct: (progress * 100).toFixed(1)
     };
   }
@@ -279,6 +282,11 @@
     refs.cH.textContent = pad(Math.floor(total / 3600) % 24);
     refs.cM.textContent = pad(Math.floor(total / 60) % 60);
     refs.cS.textContent = pad(total % 60);
+  }
+
+  function yearLabel(value) {
+    const form = new Intl.PluralRules('ru').select(value);
+    return form === 'one' ? 'год' : form === 'few' ? 'года' : 'лет';
   }
 
   function renderStats(stats) {
@@ -301,9 +309,13 @@
     refs.iBdSub.textContent = fmtDate(stats.nextBD, { day: 'numeric', month: 'long' });
 
     refs.iEndMain.textContent = stats.endDiff > 0
-      ? `через ${stats.endDelta.y} л ${stats.endDelta.m} мес`
-      : 'Срок наступил';
-    refs.iEndSub.textContent = fmtDate(stats.endDate, { day: 'numeric', month: 'long', year: 'numeric' });
+      ? `${stats.endDelta.y} ${yearLabel(stats.endDelta.y)} ${stats.endDelta.m} мес. ${stats.endDelta.d} дн.`
+      : 'Расчётная дата уже пройдена';
+    refs.iRemainingWeeks.textContent = stats.endDiff > 0
+      ? `Примерно ${(stats.remainingDays / 7).toLocaleString('ru', { maximumFractionDigits: 0 })} нед. · ${stats.remainingDays.toLocaleString('ru')} дн.`
+      : 'Остаток по этому расчёту — 0 дней';
+    refs.iLifespan.textContent = `Расчётная продолжительность: ${state.lifespan} ${yearLabel(state.lifespan)}`;
+    refs.iEndSub.textContent = `Ориентировочная дата: ${fmtDate(stats.endDate, { day: 'numeric', month: 'long', year: 'numeric' })}`;
 
     refs.progressFill.style.width = `${stats.progressPct}%`;
     refs.progressLabel.textContent = `${stats.progressPct}% прожито`;

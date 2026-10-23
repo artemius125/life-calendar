@@ -70,8 +70,10 @@ a { color:var(--accent); }
 .col-labels::before { content:''; }
 .col-label { text-align:center; font-size:9px; color:var(--muted); }
 .grid { display:grid; gap:var(--gap); }
+.year-row { position:relative; }
+.year-row::before { content:""; }
 .year-row.decade-gap { margin-top:9px; }
-.row-label { text-align:right; padding-right:5px; font-size:9px; color:var(--muted); line-height:1; }
+.row-label { position:absolute; left:0; width:24px; text-align:right; padding-right:5px; font-size:9px; color:var(--muted); line-height:1; }
 .row-label.decade { color:var(--text); font-weight:700; font-size:11px; }
 .week { aspect-ratio:1; border-radius:2px; min-width:0; border:1px solid transparent; }
 .week.past { background:var(--accent); }
@@ -122,6 +124,6 @@ footer { color:var(--muted); font-size:12px; margin-top:24px; text-align:center;
   .week.past,.legend-dot.past { background:#777 !important; border:1px solid #555; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
   .week.future,.legend-dot.future { background:white !important; border:0.2mm solid #888; }
   .week.current,.legend-dot.current { background:white !important; border:0.6mm solid #000; }
-  .row-label,.row-label.decade { font-size:6pt; }
+  .row-label,.row-label.decade { width:5mm; font-size:6pt; }
   footer { display:none; }
 }
