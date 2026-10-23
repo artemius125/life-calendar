@@ -17,6 +17,8 @@ button { cursor:pointer; }
 button:focus-visible,.week:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
 .settings-panel { border-top:1px solid var(--border); padding-top:20px; }
 .settings-form,.calculator-panel { display:grid; gap:16px; }
+.settings-form { max-height:min(52dvh, 440px); overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding:4px 8px 0 2px; }
+.settings-form .settings-actions { position:sticky; bottom:0; background:var(--surface); padding:12px 0; border-top:1px solid var(--border); z-index:1; }
 .calculator-panel[hidden],[hidden] { display:none !important; }
 .calculator-toggle-row { margin:0; }
 #toggleCalculatorBtn { width:100%; text-align:left; display:flex; justify-content:space-between; padding:12px 0; border:0; background:none; color:var(--text); font-weight:600; }
@@ -92,8 +94,22 @@ footer { color:var(--muted); font-size:12px; margin-top:24px; text-align:center;
   .header { margin-bottom:4mm; }
   h1 { font-size:24pt; }
   .header-meta { margin-top:2mm; font-size:9pt; }
-  .layout { display:block; }
-  .sidebar,.icon-btn,#tooltip,#backBtn { display:none !important; }
+  .layout { display:grid; grid-template-columns:minmax(0,1fr) 49mm; gap:5mm; align-items:start; }
+  .icon-btn,#tooltip,#backBtn,.settings-panel { display:none !important; }
+  .sidebar { display:flex; grid-row:auto; padding:4mm; gap:5mm; border:0.2mm solid #aaa; border-radius:2mm; min-width:0; }
+  .counter-time { font-size:10pt; }
+  .counter-label,.stat-label,.insight-label,.age-lbl,.insight-sub { font-size:7pt; }
+  .stats-row.primary { grid-template-columns:1fr 1fr; gap:3mm; margin-bottom:4mm; }
+  .stats-row.secondary { grid-template-columns:1fr; gap:4mm; padding-top:4mm; }
+  .stat-value { font-size:14pt; }
+  .age-breakdown { gap:2mm; flex-wrap:wrap; }
+  .age-unit { gap:1mm; }
+  .age-num,.insight-main { font-size:10pt; }
+  .progress-labels { flex-wrap:wrap; gap:1mm; font-size:6pt; }
+  .progress-track { background:#eee; border:0.2mm solid #777; }
+  .progress-fill { background:#555; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+  .col-labels,.year-row { grid-template-columns:5mm repeat(52,minmax(0,1fr)); }
+  .col-label { font-size:5pt; }
   .calendar-card { border:0; padding:0; border-radius:0; }
   h2 { display:none; }
   .print-summary { display:block; font-size:9pt; margin-bottom:3mm; }
